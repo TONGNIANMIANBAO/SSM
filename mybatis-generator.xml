@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE generatorConfiguration
+  PUBLIC "-//mybatis.org//DTD MyBatis Generator Configuration 1.0//EN"
+  "http://mybatis.org/dtd/mybatis-generator-config_1_0.dtd">
+
+<generatorConfiguration>
+
+	<context id="DB2Tables" targetRuntime="MyBatis3">
+
+		<!-- 取消生成的注釋 -->
+		<commentGenerator>
+			<property name="suppressAllComments" value="true" />
+		</commentGenerator>
+		<!--配置連接數據庫 -->
+		<jdbcConnection driverClass="com.mysql.jdbc.Driver" connectionURL="jdbc:mysql://localhost:3306/mydb" userId="root"
+			password="ROOT">
+		</jdbcConnection>
+
+		<!-- 会根据number类型的长度不同生成不同的数据类型 -->
+		<javaTypeResolver>
+			<property name="forceBigDecimals" value="false" />
+		</javaTypeResolver>
+
+		<!--指定JAVA BEAN生成路徑 -->
+		<javaModelGenerator targetPackage="com.ssm.bean" targetProject=".\src\main\java">
+			<!-- 在targetPackage的基础上，根据数据库的schema再生成一层package，最终生成的类放在这个package下，默认为false -->
+			<property name="enableSubPackages" value="true" />
+			<!-- 设置是否在getter方法中，对String类型字段调用trim()方法 -->
+			<property name="trimStrings" value="true" />
+		</javaModelGenerator>
+
+		<!-- 指定MAPPER映射文件生成路徑 -->
+		<sqlMapGenerator targetPackage="mapper" targetProject=".\src\main\resources">
+			<property name="enableSubPackages" value="true" />
+		</sqlMapGenerator>
+
+		<!-- 指定DAO接口生成路徑 -->
+		<javaClientGenerator type="XMLMAPPER" targetPackage="com.ssm.DAO" targetProject=".\src\main\java">
+			<property name="enableSubPackages" value="true" />
+		</javaClientGenerator>
+
+		<!-- 指定每個表的生成策略 -->
+		<table tableName="c_employee_t" domainObjectName="Employee"></table>
+		<table tableName="c_department_t" domainObjectName="Department"></table>
+
+	</context>
+</generatorConfiguration>

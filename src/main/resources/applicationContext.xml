@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context" xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.3.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.3.xsd
+		http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.3.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.3.xsd">
+
+	<!--spring配置文件，業務邏輯有關 -->
+
+	<!--不掃描控制器 ,因為在springmvc中進行了掃描 -->
+	<context:component-scan base-package="com.ssm">
+		<context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller" />
+	</context:component-scan>
+
+	<!-- ==================數據源================ -->
+	<context:property-placeholder location="classpath:jdbc.properties" />
+	<bean id="comboPooledDataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+		<property name="jdbcUrl" value="${jdbcUrl}"></property>
+		<property name="driverClass" value="${driverClass}"></property>
+		<property name="user" value="${user}"></property>
+		<property name="password" value="${password}"></property>
+	</bean>
+
+	<!--================配置和mybatis整合================== -->
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<!--指定mybatis配置文件路徑 -->
+		<property name="configLocation" value="classpath:mybatis-config.xml"></property>
+		<property name="dataSource" ref="comboPooledDataSource"></property>
+		<!--指定mapper配置文件路徑 -->
+		<property name="mapperLocations" value="classpath:mapper/*.xml"></property>
+	</bean>
+
+	<!--掃描MAPPER接口的實現，自動注入，將mybatis接口實現加入到IOC容器中 -->
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<property name="basePackage" value="com.ssm.DAO"></property>
+	</bean>
+
+	<!-- 配置一個可以批量的sqlsession -->
+	<bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate">
+		<constructor-arg name="sqlSessionFactory" ref="sqlSessionFactory"></constructor-arg>
+		<constructor-arg name="executorType" value="BATCH"></constructor-arg>
+	</bean>
+
+
+	<!--====================事務控制 ============== -->
+	<bean id="dataSourceTransactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="comboPooledDataSource"></property>
+	</bean>
+	<!--開啟基於注解的事務，使用XML配置事務 -->
+	<aop:config>
+		<!--切入點 -->
+		<aop:pointcut expression="execution(* com.ssm.service..*(..))" id="txPoint" />
+		<!-- 配置事務增強 -->
+		<aop:advisor advice-ref="txAdvice" pointcut-ref="txPoint" />
+	</aop:config>
+	<!--配置事務如何切入 -->
+	<tx:advice id="txAdvice" transaction-manager="dataSourceTransactionManager">
+		<tx:attributes>
+			<tx:method name="*" />
+			<tx:method name="get*" read-only="true" />
+		</tx:attributes>
+	</tx:advice>
+
+	<!-- =============配置shiro========== -->
+	<!-- 配置权限管理器 -->
+	<bean id="myShiro" class="com.ssm.shiro.MyShiro"></bean>
+	<bean id="cacheManager" class="org.apache.shiro.cache.MemoryConstrainedCacheManager" />
+	<bean id="lifecycleBeanPostProcessor" class="org.apache.shiro.spring.LifecycleBeanPostProcessor" />
+	<bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+		<!-- ref对应我们写的realm MyShiro -->
+		<property name="realm" ref="myShiro" />
+		<!-- 使用下面配置的缓存管理器 -->
+		<property name="cacheManager" ref="cacheManager" />
+	</bean>
+	<!-- 配置shiro的过滤器工厂类，id- shiroFilter要和我们在web.xml中配置的过滤器一致 -->
+	<bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+		<!-- 调用我们配置的权限管理器 -->
+		<property name="securityManager" ref="securityManager" />
+		<!-- 配置我们的登录请求地址 -->
+		<property name="loginUrl" value="/login.jsp" />
+		<!-- 配置我们在登录页登录成功后的跳转地址，如果你访问的是非/login地址，则跳到您访问的地址 -->
+		<property name="successUrl" value="/index.jsp" />
+		<!-- 如果您请求的资源不再您的权限范围，则跳转到/403请求地址 -->
+		<property name="unauthorizedUrl" value="/403.jsp" />
+		<!-- 权限配置 -->
+		<property name="filterChainDefinitions">
+			<value>
+				<!-- anon表示此地址不需要任何权限即可访问 -->
+				/login* = anon
+				/logout = anon
+				<!-- perms[user:query]表示访问此连接需要权限为user:query的用户 -->
+				<!-- /user=perms[user:query] -->
+				<!-- roles[manager]表示访问此连接需要用户的角色为manager -->
+				/emp/** = roles[admin]
+				<!-- 所有的请求(除去配置的静态资源请求或请求地址为anon的请求)都要通过登录验证,如果未登录则跳到/login -->
+				/** = authc
+			</value>
+		</property>
+	</bean>
+	<!-- <bean class="org.springframework.web.servlet.handler.SimpleMappingExceptionResolver"> <property name="exceptionMappings"> <props> 错误异常转发jsp页面 
+		<prop key="org.apache.shiro.authz.UnauthorizedException">/403</prop> <prop key="org.apache.shiro.authz.UnauthenticatedException">/403.jsp</prop> 
+		</props> </property> </bean> -->
+</beans>
